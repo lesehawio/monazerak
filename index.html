@@ -86,7 +86,7 @@
     <h2>بازیکنان</h2>
     <div id="players"></div>
     <h3>نوبت: <span id="currentPlayerName"></span></h3>
-    <div id="timer">زمان باقی‌مانده: <span id="timeLeft"></span> ثانیه</div>
+    <div id="timer">زمان باقی‌مانده: <span id="timeLeft">۰</span> ثانیه</div>
     <div class="log" id="log"></div>
     <div id="scoreBoard">🎯 امتیازها: <span id="scores"></span></div>
   </div>
@@ -95,7 +95,7 @@
     let players = [];
     let currentPlayerIndex = 0;
     let turnTimer;
-    let timeLeft = 60; // زمان اولیه صحبت
+    let timeLeft = 0; // زمان اولیه صفر
     let colors = ['pastel-1','pastel-2','pastel-3','pastel-4','pastel-5','pastel-6'];
     const topics = [
       'آیا هوش مصنوعی تهدید است یا فرصت؟',
@@ -103,10 +103,6 @@
       'آیا فضای مجازی آزادی بیان را تقویت کرده یا تضعیف؟',
       'آیا عدالت مهم‌تر است یا آزادی؟',
       'آیا آموزش حضوری بهتر است یا مجازی؟',
-      'آیا سانسور به نفع جامعه است؟',
-      'آیا تغییرات اقلیمی واقعی است یا افسانه‌ای بیش نیست؟',
-      'آیا مصرف انرژی تجدیدپذیر ضروری است؟',
-      'آیا رسانه‌ها در شکل‌دهی به افکار عمومی تأثیر مثبت دارند یا منفی؟',
       // ... (بقیه موضوعات)
     ];
     let currentLogic = { symbol: '♦', label: 'منطقی و علمی' };
@@ -150,29 +146,60 @@
           <strong>${p.name}</strong><br>
           🎯 امتیاز: ${p.score}<br>
           <div class="buttons">
+            <label for="timeInput${i}">زمان (1 تا 10):</label>
+            <input type="number" id="timeInput${i}" min="1" max="10" value="2" onchange="setTime(${i})">
+            <button onclick="startTurnForPlayer(${i})">🚀 شروع</button>
+            <button onclick="stopTimer()">⏸️ توقف زمان</button>
             <button onclick="addTime(${i})">⏱ زمان بیشتر</button>
             <button onclick="askDivergent(${i})">❓ سوال انحرافی</button>
             <button onclick="changeLogic()">👑 تعویض منطق (شاه)</button>
             <button onclick="vote(${i})">🗳 رأی</button>
             <button onclick="addScore(${i})">➕ امتیاز</button>
-            <br>
-            <label for="timeInput${i}">زمان (2 تا 10):</label>
-            <input type="number" id="timeInput${i}" min="2" max="10" value="2" onchange="updateTime(${i})">
           </div>
         `;
         container.appendChild(div);
       });
     }
 
-    function changeLogic() {
-      const suit = prompt('منطق جدید را انتخاب کنید: ♠ (سیاسی)، ♥ (احساسی)، ♣ (فلسفی)، ♦ (علمی)');
-      const logicMap = {
-        '♠': 'سیاسی و قدرتی',
-        '♥': 'احساسی',
-        '♣': 'فلسفی و اخلاقی',
-        '♦': 'منطقی و علمی'
-      };
-      if (logicMap[suit]) setLogic(suit, logicMap[suit]);
+    function setTime(i) {
+      const inputValue = parseInt(document.getElementById(`timeInput${i}`).value);
+      if (inputValue >= 1 && inputValue <= 10) {
+        players[i].time = inputValue; // زمان بر اساس ورودی بازیکن
+      }
+    }
+
+    function startTurnForPlayer(i) {
+      currentPlayerIndex = i;
+      timeLeft = players[currentPlayerIndex].time * 10; // زمان بر اساس ورودی بازیکن
+      updateTurnDisplay();
+      document.getElementById('timeLeft').textContent = timeLeft;
+      clearInterval(turnTimer);
+      turnTimer = setInterval(() => {
+        timeLeft--;
+        document.getElementById('timeLeft').textContent = timeLeft;
+        if (timeLeft <= 0) {
+          clearInterval(turnTimer);
+          logAction(`${players[currentPlayerIndex].name} نوبتش تموم شد. استراحت!`);
+          currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
+          startTurnForPlayer(currentPlayerIndex); // شروع نوبت بعدی
+        }
+      }, 1000); // کاهش زمان هر ثانیه
+    }
+
+    function stopTimer() {
+      clearInterval(turnTimer);
+      logAction(`${players[currentPlayerIndex].name} زمان را متوقف کرد.`);
+    }
+
+    function updateTurnDisplay() {
+      document.getElementById('currentPlayerName').textContent = players[currentPlayerIndex].name;
+    }
+
+    function logAction(msg) {
+      const log = document.getElementById('log');
+      const p = document.createElement('p');
+      p.textContent = msg;
+      log.prepend(p);
     }
 
     function askDivergent(i) {
@@ -182,23 +209,6 @@
     function addTime(i) {
       players[i].time += 30; // زمان بیشتری به بازیکن اضافه می‌شود
       logAction(`🪖 ${players[i].name} زمان صحبت را افزایش داد.`);
-    }
-
-    function startTurn() {
-      updateTurnDisplay();
-      timeLeft = Math.max(players[currentPlayerIndex].time * 10, 2); // زمان حداقل 2 ثانیه
-      document.getElementById('timeLeft').textContent = timeLeft;
-      clearInterval(turnTimer);
-      turnTimer = setInterval(() => {
-        timeLeft--;
-        document.getElementById('timeLeft').textContent = timeLeft;
-        if (timeLeft <= 0) {
-          clearInterval(turnTimer);
-          logAction(`${players[currentPlayerIndex].name} نوبتش تموم شد.`);
-          currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
-          startTurn();
-        }
-      }, 1000); // کاهش زمان هر ثانیه
     }
 
     function vote(i) {
@@ -217,28 +227,20 @@
       }
     }
 
-    function updateTurnDisplay() {
-      document.getElementById('currentPlayerName').textContent = players[currentPlayerIndex].name;
+    function changeLogic() {
+      const suit = prompt('منطق جدید را انتخاب کنید: ♠ (سیاسی)، ♥ (احساسی)، ♣ (فلسفی)، ♦ (علمی)');
+      const logicMap = {
+        '♠': 'سیاسی و قدرتی',
+        '♥': 'احساسی',
+        '♣': 'فلسفی و اخلاقی',
+        '♦': 'منطقی و علمی'
+      };
+      if (logicMap[suit]) setLogic(suit, logicMap[suit]);
     }
 
     function updateScores() {
       const scoreText = players.map(p => `${p.name}: ${p.score}`).join(' | ');
       document.getElementById('scores').textContent = scoreText;
-    }
-
-    function logAction(msg) {
-      const log = document.getElementById('log');
-      const p = document.createElement('p');
-      p.textContent = msg;
-      log.prepend(p);
-    }
-
-    function updateTime(i) {
-      const inputValue = parseInt(document.getElementById(`timeInput${i}`).value);
-      if (inputValue >= 2 && inputValue <= 10) {
-        players[i].time = inputValue; // زمان بر اساس ورودی بازیکن
-        logAction(`🕒 زمان صحبت ${players[i].name} به ${players[i].time * 10} ثانیه تغییر یافت.`);
-      }
     }
   </script>
 
